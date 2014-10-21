@@ -7,7 +7,11 @@ x11.createClient(function(err, display) {
       X.InternAtom(false, '_XSETTINGS_SETTINGS', function(err, xsettingsAtom) {
         X.GetSelectionOwner(settingsOwnerAtom, function(err, win) {
           X.GetProperty(0, win, xsettingsAtom, 0, 0, 1e20, function(err, propValue) {
-            console.log(xsettings.decode(propValue.data));
+            var decoded = xsettings.decode(propValue.data);
+            console.log(decoded);
+            var encoded = xsettings.encode(decoded, 0);
+            var decoded_again = xsettings.decode(encoded);
+            console.log(decoded_again);
           });
         });
       });

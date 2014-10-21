@@ -1,3 +1,7 @@
+function pad4(len) {
+  return ((len + 3) >> 2) << 2;
+}
+
 function decode(buf) {
   var offset = 0;
   var endian = buf[0];
@@ -12,10 +16,6 @@ function decode(buf) {
       res = buf.readUInt32LE(offset);
     offset += 4;
     return res;
-  };
-
-  var pad4 = function(len) {
-    return ((len + 3) >> 2) << 2;
   };
 
   var readShort = function() {
@@ -57,7 +57,10 @@ function decode(buf) {
   offset = 4;
   var serial = readInt();
   var nkeys  = readInt();
-  var settings = {};
+  var settings = {
+    serial : serial
+  };
+
   for (var i=0; i < nkeys; ++i) {
     setting = {};
     setting.type = readByte();
@@ -70,8 +73,107 @@ function decode(buf) {
   return settings;
 }
 
-function encode(settings) {
-  // TODO
+function encode(settings, endian) {
+
+  var offset;
+  var data;
+
+  function writeByte(b) {
+    data.writeUInt8(b, offset ++);
+  }
+
+  function writeShort(s) {
+    if (endian) {
+      data.writeUInt16BE(s, offset);
+    } else {
+      data.writeUInt16LE(s, offset);
+    }
+
+    offset += 2;
+  }
+
+  function writeInt(i) {
+    if (endian) {
+      data.writeUInt32BE(i, offset);
+    } else {
+      data.writeUInt32LE(i, offset);
+    }
+
+    offset += 4;
+  }
+
+  function writeString(name) {
+    var len = data.write(name, offset);
+    offset += pad4(len);
+  }
+
+
+  function encode_setting(name, setting) {
+    var length = 8 + pad4(name.length);
+    switch (setting.type) {
+      case 0: // int
+        length += 4;
+      break;
+
+      case 1: // string
+        length += 4;
+        length += pad4(setting.value.length);
+      break;
+
+      case 2: // color
+        length += 8;
+      break;
+    }
+
+    data = new Buffer(length);
+    offset = 0;
+
+    writeByte(setting.type, data);
+    ++ offset;
+    writeShort(name.length);
+    writeString(name);
+    writeInt(setting.serial);
+
+    switch (setting.type) {
+      case 0: // int
+        writeInt(setting.value);
+      break;
+
+      case 1: // string
+        writeInt(setting.value.length);
+        writeString(setting.value);
+      break;
+
+      case 2: // color
+        writeShort(setting.value.red);
+        writeShort(setting.value.blue);
+        writeShort(setting.value.green);
+        writeShort(setting.value.alpha);
+      break;
+    }
+
+    return data;
+  }
+
+  offset = 0;
+  data = new Buffer(12);
+  writeByte(endian);
+  offset = 4;
+  writeInt(settings.serial);
+  var attrs = Object.keys(settings);
+  writeInt(attrs.length - 1);
+
+  var total_offset = offset;
+
+  var setts = [ data ];
+  attrs.forEach(function(attr) {
+    if (attr !== 'serial') {
+      setts.push(encode_setting(attr, settings[attr]));
+      total_offset += offset;
+    }
+  });
+
+  return Buffer.concat(setts, total_offset);
 }
 
 module.exports.encode = encode;
