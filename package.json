@@ -1,6 +1,6 @@
 {
   "name": "x11-xsettings",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "xsettings binary format (de)serialiser",
   "main": "index.js",
   "scripts": {
